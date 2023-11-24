@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog, Scale
 from PIL import Image, ImageTk
 import numpy as np
+import collections
 
 class ImageProcessor:
     def __init__(self, root):
@@ -18,28 +19,32 @@ class ImageProcessor:
         self.button_open = tk.Button(root, text="開檔", command=self.open_image)
         self.button_open.pack()
 
-        self.button_flip = tk.Button(root, text="翻轉", command=self.flip_image)
+        self.button_flip = tk.Button(root, text="翻轉", command=lambda: self.add_image_effect("flip"))
         self.button_flip.pack()
 
-        self.button_gray = tk.Button(root, text="灰階", command=self.convert_to_gray)
+        self.button_gray = tk.Button(root, text="灰階", command=lambda: self.add_image_effect("gray"))
         self.button_gray.pack()
 
-        self.button_negative = tk.Button(root, text="負片", command=self.apply_negative)
+        self.button_negative = tk.Button(root, text="負片", command=lambda: self.add_image_effect("negative"))
         self.button_negative.pack()
 
-        self.button_binary = tk.Button(root, text="二值化", command=self.apply_binary)
+        self.button_binary = tk.Button(root, text="二值化", command=lambda: self.add_image_effect("binary"))
         self.button_binary.pack()
 
         self.threshold_var = tk.IntVar()
-        self.threshold_var.set(127)  # 初始閾值
+        self.threshold_var.set(127)# 初始閾值
+        self.threshold_switch = tk.IntVar(value = 0)
+        self.threshold_switch.set(0)
+        checkbutton = tk.Checkbutton(root, text="閾值開關", variable=self.threshold_switch, onvalue=1, offvalue=0, command=self.produce_image)
+        checkbutton.pack()
         self.threshold_slider = Scale(root, label="閾值", orient=tk.HORIZONTAL, from_=0, to=255,
-                                      variable=self.threshold_var, command=self.apply_binary)
+                                      variable=self.threshold_var, command=self.produce_image)
         self.threshold_slider.pack()
 
         self.rotation_var = tk.IntVar()
         self.rotation_var.set(0)  # 初始旋轉角度
         self.rotation_slider = Scale(root, label="旋轉角度", orient=tk.HORIZONTAL, from_=0, to=360,
-                                     variable=self.rotation_var, command=self.rotate_image)
+                                     variable=self.rotation_var, command=self.produce_image)
         self.rotation_slider.pack()
 
         self.button_extract = tk.Button(root, text="區域放大", command=self.extract_region)
@@ -48,55 +53,85 @@ class ImageProcessor:
         self.button_save = tk.Button(root, text="存檔", command=self.save_image)
         self.button_save.pack()
 
+        self.show_width = 255
         self.image_path = None
         self.image = None
         self.resized_image = None
         self.processed_image = None
+        self.resized_processed_image = None
+        self.retrieve_image = None
         self.selection_rectangle = None
+        self.image_effect = []
 
+    def add_image_effect(self, effect):
+        self.image_effect.append(effect)
+        self.produce_image()
+        
+    def produce_image(self, rotation_var = None, image = None):
+        if self.image is not None:
+            print(self.processed_image)
+            if image is not None:
+                self.retrieve_image = image
+            self.processed_image = self.retrieve_image
+            if collections.Counter(self.image_effect)["flip"] % 2:
+                self.flip_image()
+            if collections.Counter(self.image_effect)["gray"] % 2:
+                self.convert_to_gray()
+            if collections.Counter(self.image_effect)["negative"] % 2:
+                self.apply_negative()
+            if collections.Counter(self.image_effect)["binary"] % 2:
+                self.apply_binary()
+            if self.threshold_switch.get():
+                self.apply_binary()
+            self.rotate_image()
+            
+            # print(self.processed_image)
+            self.display_image("processed") # 顯示處理後的圖像
+                    
+                    
     def open_image(self):
         file_path = filedialog.askopenfilename()
         if file_path:
             self.image_path = file_path
             self.image = cv2.imread(file_path)
-            self.resize_image()
+            self.processed_image = self.image
+            self.retrieve_image = self.image
+            self.resized_image = self.resize_image(self.image)
             self.display_image("original")  # 顯示原圖
+            self.image_effect = []
 
-    def resize_image(self):
-        if self.image is not None:
+
+    def resize_image(self, image):
+        if image is not None:
             # 計算等比例縮放後的高度
-            width = 255
-            height = int(self.image.shape[0] * (width / self.image.shape[1]))
-            self.resized_image = cv2.resize(self.image, (width, height))
-
+            height = int(image.shape[0] * (self.show_width / image.shape[1]))
+            return cv2.resize(image, (self.show_width, height))
     def flip_image(self):
-        if self.resized_image is not None:
-            self.processed_image = cv2.flip(self.resized_image, 1)  # 1表示水平翻轉
-            self.display_image("processed")  # 顯示翻轉後的圖像
+        #水平翻轉
+        self.processed_image = cv2.flip(self.processed_image, 1)  # 1表示水平翻轉
 
     def convert_to_gray(self):
-        if self.resized_image is not None:
-            self.processed_image = cv2.cvtColor(self.resized_image, cv2.COLOR_BGR2GRAY)
-            self.display_image("processed")  # 顯示灰階圖像
+        #灰階圖像
+        self.processed_image = cv2.cvtColor(self.processed_image, cv2.COLOR_BGR2GRAY)
 
     def apply_negative(self):
-        if self.resized_image is not None:
-            self.processed_image = 255 - self.resized_image
-            self.display_image("processed")  # 顯示負片
+        #負片
+        self.processed_image = 255 - self.processed_image
 
     def apply_binary(self, event=None):
-        if self.resized_image is not None:
-            threshold_value = self.threshold_var.get()
-            _, self.processed_image = cv2.threshold(self.resized_image, threshold_value, 255, cv2.THRESH_BINARY)
-            self.display_image("processed")  # 顯示二值化後的圖像
+        #二值化
+        threshold_value = self.threshold_var.get()
+        _, self.processed_image = cv2.threshold(self.processed_image, threshold_value, 255, cv2.THRESH_BINARY)
 
     def rotate_image(self, event=None):
-        if self.resized_image is not None:
-            rotation_angle = self.rotation_var.get()
-            rows, cols, _ = self.resized_image.shape
-            rotation_matrix = cv2.getRotationMatrix2D((cols / 2, rows / 2), rotation_angle, 1)
-            self.processed_image = cv2.warpAffine(self.resized_image, rotation_matrix, (cols, rows))
-            self.display_image("processed")  # 顯示旋轉後的圖像
+        # 旋轉
+        rotation_angle = self.rotation_var.get()
+        if len(self.processed_image.shape) == 2:    # 灰階圖像
+            rows, cols = self.processed_image.shape
+        else:
+            rows, cols, _ = self.processed_image.shape
+        rotation_matrix = cv2.getRotationMatrix2D((cols / 2, rows / 2), rotation_angle, 1)
+        self.processed_image = cv2.warpAffine(self.processed_image, rotation_matrix, (cols, rows)) 
 
     def extract_region(self):
         if self.resized_image is not None:
@@ -128,33 +163,32 @@ class ImageProcessor:
         end_x = self.canvas_original.canvasx(event.x)
         end_y = self.canvas_original.canvasy(event.y)
 
+        t = self.image.shape[1] / self.show_width
+        
         # 截取選區內的圖像
-        x1 = min(self.start_x, end_x)
-        y1 = min(self.start_y, end_y)
-        x2 = max(self.start_x, end_x)
-        y2 = max(self.start_y, end_y)
-
-        region = self.resized_image[int(y1):int(y2), int(x1):int(x2)]
-
-        # 顯示截取的圖像
-        self.display_extracted_image(region)
-
+        x1 = min(self.start_x, end_x) * t
+        y1 = min(self.start_y, end_y) * t
+        x2 = max(self.start_x, end_x) * t
+        y2 = max(self.start_y, end_y) * t
+        
+        self.produce_image(image = self.image[int(y1):int(y2), int(x1):int(x2)])
+        
         # 解綁事件，避免重複觸發
         self.canvas_original.unbind("<ButtonPress-1>")
         self.canvas_original.unbind("<B1-Motion>")
         self.canvas_original.unbind("<ButtonRelease-1>")
 
-    def display_extracted_image(self, region):
-        if region is not None:
-            region_rgb = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
-            region_pil = Image.fromarray(region_rgb)
-            region_tk = ImageTk.PhotoImage(region_pil)
+    # def display_extracted_image(self, region):
+    #     if region is not None:
+    #         region_rgb = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
+    #         region_pil = Image.fromarray(region_rgb)
+    #         region_tk = ImageTk.PhotoImage(region_pil)
 
-            height, width = region_rgb.shape[:2]
+    #         height, width = region_rgb.shape[:2]
 
-            self.canvas_processed.config(width=width, height=height)
-            self.canvas_processed.create_image(0, 0, anchor=tk.NW, image=region_tk)
-            self.canvas_processed.image = region_tk
+    #         self.canvas_processed.config(width=width, height=height)
+    #         self.canvas_processed.create_image(0, 0, anchor=tk.NW, image=region_tk)
+    #         self.canvas_processed.image = region_tk
 
     def save_image(self):
         if self.processed_image is not None:
@@ -174,20 +208,22 @@ class ImageProcessor:
             canvas = self.canvas_original
 
         elif mode == "processed" and self.processed_image is not None:
-            if len(self.processed_image.shape) == 2:  # 灰階圖像
-                processed_rgb = cv2.cvtColor(self.processed_image, cv2.COLOR_GRAY2RGB)
+            self.resized_processed_image = self.resize_image(self.processed_image)
+            print(self.resized_processed_image.shape)
+            if len(self.resized_processed_image.shape) == 2:  # 灰階圖像
+                image_rgb = cv2.cvtColor(self.resized_processed_image, cv2.COLOR_GRAY2RGB)
             else:
-                processed_rgb = cv2.cvtColor(self.processed_image, cv2.COLOR_BGR2RGB)
+                image_rgb = cv2.cvtColor(self.resized_processed_image, cv2.COLOR_BGR2RGB)
 
-            processed_pil = Image.fromarray(processed_rgb)
-            processed_tk = ImageTk.PhotoImage(processed_pil)
+            image_pil = Image.fromarray(image_rgb)
+            image_tk = ImageTk.PhotoImage(image_pil)
 
-            height, width = processed_rgb.shape[:2]
+            height, width = image_rgb.shape[:2]
             canvas = self.canvas_processed
 
         canvas.config(width=width, height=height)
-        canvas.create_image(0, 0, anchor=tk.NW, image=image_tk if mode == "original" else processed_tk)
-        canvas.image = image_tk if mode == "original" else processed_tk
+        canvas.create_image(0, 0, anchor=tk.NW, image=image_tk)
+        canvas.image = image_tk
 
 if __name__ == "__main__":
     root = tk.Tk()
