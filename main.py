@@ -42,7 +42,7 @@ class ImageProcessor:
                                      variable=self.rotation_var, command=self.rotate_image)
         self.rotation_slider.pack()
 
-        self.button_extract = tk.Button(root, text="擷取", command=self.extract_region)
+        self.button_extract = tk.Button(root, text="區域放大", command=self.extract_region)
         self.button_extract.pack()
 
         self.button_save = tk.Button(root, text="存檔", command=self.save_image)
@@ -52,7 +52,6 @@ class ImageProcessor:
         self.image = None
         self.resized_image = None
         self.processed_image = None
-        self.extracted_region = None
         self.selection_rectangle = None
 
     def open_image(self):
@@ -135,10 +134,10 @@ class ImageProcessor:
         x2 = max(self.start_x, end_x)
         y2 = max(self.start_y, end_y)
 
-        self.extracted_region = self.resized_image[int(y1):int(y2), int(x1):int(x2)]
+        region = self.resized_image[int(y1):int(y2), int(x1):int(x2)]
 
         # 顯示截取的圖像
-        self.display_extracted_image(self.extracted_region)
+        self.display_extracted_image(region)
 
         # 解綁事件，避免重複觸發
         self.canvas_original.unbind("<ButtonPress-1>")
@@ -163,12 +162,7 @@ class ImageProcessor:
                                                                                         ("JPEG files", "*.jpg;*.jpeg"),
                                                                                         ("All files", "*.*")])
             if file_path:
-                if self.extracted_region is not None:
-                    # 如果有選取區域，則保存選取區域的圖像
-                    cv2.imwrite(file_path, self.extracted_region)
-                else:
-                    # 如果沒有選取區域，則保存處理後的整張圖像
-                    cv2.imwrite(file_path, self.processed_image)
+                cv2.imwrite(file_path, self.processed_image)
 
     def display_image(self, mode):
         if mode == "original" and self.resized_image is not None:
