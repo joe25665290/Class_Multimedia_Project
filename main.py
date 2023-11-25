@@ -33,10 +33,6 @@ class ImageProcessor:
 
         self.threshold_var = tk.IntVar()
         self.threshold_var.set(127)# 初始閾值
-        self.threshold_switch = tk.IntVar(value = 0)
-        self.threshold_switch.set(0)
-        checkbutton = tk.Checkbutton(root, text="閾值開關", variable=self.threshold_switch, onvalue=1, offvalue=0, command=self.produce_image)
-        checkbutton.pack()
         self.threshold_slider = Scale(root, label="閾值", orient=tk.HORIZONTAL, from_=0, to=255,
                                       variable=self.threshold_var, command=self.produce_image)
         self.threshold_slider.pack()
@@ -67,9 +63,8 @@ class ImageProcessor:
         self.image_effect.append(effect)
         self.produce_image()
         
-    def produce_image(self, rotation_var = None, image = None):
+    def produce_image(self, image = None):
         if self.image is not None:
-            print(self.processed_image)
             if image is not None:
                 self.retrieve_image = image
             self.processed_image = self.retrieve_image
@@ -81,11 +76,8 @@ class ImageProcessor:
                 self.apply_negative()
             if collections.Counter(self.image_effect)["binary"] % 2:
                 self.apply_binary()
-            if self.threshold_switch.get():
-                self.apply_binary()
             self.rotate_image()
             
-            # print(self.processed_image)
             self.display_image("processed") # 顯示處理後的圖像
                     
                     
@@ -94,11 +86,14 @@ class ImageProcessor:
         if file_path:
             self.image_path = file_path
             self.image = cv2.imread(file_path)
-            self.processed_image = self.image
-            self.retrieve_image = self.image
-            self.resized_image = self.resize_image(self.image)
-            self.display_image("original")  # 顯示原圖
-            self.image_effect = []
+        if self.image is None:
+            print("不支援此圖片檔名或其他錯誤")
+            return 
+        self.processed_image = self.image
+        self.retrieve_image = self.image
+        self.resized_image = self.resize_image(self.image)
+        self.display_image("original")  # 顯示原圖
+        self.image_effect = []
 
 
     def resize_image(self, image):
@@ -106,6 +101,7 @@ class ImageProcessor:
             # 計算等比例縮放後的高度
             height = int(image.shape[0] * (self.show_width / image.shape[1]))
             return cv2.resize(image, (self.show_width, height))
+
     def flip_image(self):
         #水平翻轉
         self.processed_image = cv2.flip(self.processed_image, 1)  # 1表示水平翻轉
@@ -178,17 +174,6 @@ class ImageProcessor:
         self.canvas_original.unbind("<B1-Motion>")
         self.canvas_original.unbind("<ButtonRelease-1>")
 
-    # def display_extracted_image(self, region):
-    #     if region is not None:
-    #         region_rgb = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
-    #         region_pil = Image.fromarray(region_rgb)
-    #         region_tk = ImageTk.PhotoImage(region_pil)
-
-    #         height, width = region_rgb.shape[:2]
-
-    #         self.canvas_processed.config(width=width, height=height)
-    #         self.canvas_processed.create_image(0, 0, anchor=tk.NW, image=region_tk)
-    #         self.canvas_processed.image = region_tk
 
     def save_image(self):
         if self.processed_image is not None:
