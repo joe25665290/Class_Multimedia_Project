@@ -63,7 +63,7 @@ class ImageProcessor:
         self.image_effect.append(effect)
         self.produce_image()
         
-    def produce_image(self, image = None):
+    def produce_image(self, _=None ,image = None):
         if self.image is not None:
             if image is not None:
                 self.retrieve_image = image
