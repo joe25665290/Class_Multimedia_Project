@@ -52,6 +52,18 @@ class ImageProcessor:
         self.button_extract = tk.Button(root, text="區域放大", command=self.extract_region)
         self.button_extract.pack()
 
+        self.button_erode = tk.Button(root, text="侵蚀", command=self.erode_image)
+        self.button_erode.pack()
+
+        self.button_dilate = tk.Button(root, text="膨胀", command=self.dilate_image)
+        self.button_dilate.pack()
+
+        self.kernel_size_var = tk.IntVar()
+        self.kernel_size_var.set(3)  # 设置初始内核大小
+        self.kernel_size_slider = Scale(root, label="内核大小", orient=tk.HORIZONTAL, from_=1, to=15,resolution=2,
+                                        variable=self.kernel_size_var, command=self.produce_image)
+        self.kernel_size_slider.pack()
+
         self.button_save = tk.Button(root, text="存檔", command=self.save_image)
         self.button_save.pack()
 
@@ -131,6 +143,18 @@ class ImageProcessor:
         gamma_value = self.gamma_var.get()
         gamma_corrected = np.power(self.processed_image / 255.0, gamma_value)
         self.processed_image = np.uint8(255 * gamma_corrected)
+    
+    def erode_image(self):
+        kernel_size = self.kernel_size_var.get()
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        self.processed_image = cv2.erode(self.processed_image, kernel)
+        self.display_image("processed")
+
+    def dilate_image(self):
+        kernel_size = self.kernel_size_var.get()
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        self.processed_image = cv2.dilate(self.processed_image, kernel)
+        self.display_image("processed")
 
     def extract_region(self):
         if self.resized_image is not None:
