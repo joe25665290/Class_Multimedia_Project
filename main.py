@@ -52,15 +52,15 @@ class ImageProcessor:
         self.button_extract = tk.Button(root, text="區域放大", command=self.extract_region)
         self.button_extract.pack()
 
-        self.button_erode = tk.Button(root, text="侵蚀", command=self.erode_image)
+        self.button_erode = tk.Button(root, text="侵蝕", command=lambda: self.add_image_effect("erode"))
         self.button_erode.pack()
 
-        self.button_dilate = tk.Button(root, text="膨胀", command=self.dilate_image)
+        self.button_dilate = tk.Button(root, text="膨脹", command=lambda: self.add_image_effect("dilate"))
         self.button_dilate.pack()
 
         self.kernel_size_var = tk.IntVar()
         self.kernel_size_var.set(3)  # 设置初始内核大小
-        self.kernel_size_slider = Scale(root, label="内核大小", orient=tk.HORIZONTAL, from_=1, to=15,resolution=2,
+        self.kernel_size_slider = Scale(root, label="內核大小", orient=tk.HORIZONTAL, from_=1, to=15,resolution=2,
                                         variable=self.kernel_size_var, command=self.produce_image)
         self.kernel_size_slider.pack()
 
@@ -86,16 +86,24 @@ class ImageProcessor:
             if image is not None:
                 self.retrieve_image = image
             self.processed_image = self.retrieve_image.copy()  # Make a copy to avoid modifying the original
-            if collections.Counter(self.image_effect)["flip"] % 2:
+            effect = collections.Counter(self.image_effect)
+            if effect["flip"] % 2:
                 self.flip_image()
-            if collections.Counter(self.image_effect)["gray"] % 2:
+            if effect["gray"] % 2:
                 self.convert_to_gray()
-            if collections.Counter(self.image_effect)["negative"] % 2:
+            if effect["negative"] % 2:
                 self.apply_negative()
-            if collections.Counter(self.image_effect)["binary"] % 2:
+            if effect["binary"] % 2:
                 self.apply_binary()
+            for i in self.image_effect:
+                if i == "dilate":
+                    self.dilate_image()
+                elif i == "erode":
+                    self.erode_image()
+            
             self.rotate_image()
             self.adjust_gamma()
+            
             self.display_image("processed")
 
     def open_image(self):
